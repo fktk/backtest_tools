@@ -6,6 +6,7 @@ name = "pypi"
 [scripts]
 test = "python -m pytest"
 serve = "live-server tests --port=3000 --host=0.0.0.0"
+docs = "bash -c 'sphinx-apidoc -f -o ./docs ./backtest_tools/ && sphinx-build docs docs/_build'"
 
 [packages]
 numpy = "*"
@@ -13,6 +14,7 @@ pandas = "*"
 backtesting = "*"
 ta-lib = "*"
 tqdm = "*"
+backtest-tools = {editable = true, path = "."}
 
 [dev-packages]
 autopep8 = "*"

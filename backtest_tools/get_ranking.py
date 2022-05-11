@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 
-from src.read_price import parse_protra_data
+from backtest_tools.read_price import parse_protra_data
 
 basepath = Path(__file__).parent.joinpath('data')
 
