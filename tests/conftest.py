@@ -1,14 +1,9 @@
 import pytest
 
 from backtesting.test import GOOG
-from backtesting import Strategy
+from backtesting import Strategy, Backtest
 from backtesting.lib import crossover
 from talib import EMA
-
-
-@pytest.fixture
-def sample_data():
-    return GOOG
 
 
 class EmaCross(Strategy):
@@ -32,3 +27,15 @@ class EmaCross(Strategy):
 @pytest.fixture
 def get_strategy():
     return EmaCross
+
+
+@pytest.fixture
+def sample_data():
+    return GOOG
+
+
+@pytest.fixture
+def sample_stats():
+    bt = Backtest(GOOG, EmaCross)
+    stats = bt.run()
+    return stats

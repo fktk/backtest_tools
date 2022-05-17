@@ -5,7 +5,7 @@ name = "pypi"
 
 [scripts]
 test = "python -m pytest"
-serve = "live-server tests --port=3000 --host=0.0.0.0"
+serve = "live-server --port=3000 --host=0.0.0.0"
 docs = "bash -c 'sphinx-apidoc -f -o ./docs ./backtest_tools/ && sphinx-build docs docs/_build'"
 
 [packages]

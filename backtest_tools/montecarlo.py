@@ -1,5 +1,7 @@
-from random import randrange
+from __future__ import annotations
+import random
 from datetime import timedelta
+from tqdm import tqdm
 import pandas as pd
 import numpy as np
 from bokeh.plotting import save, figure, output_file
@@ -7,34 +9,130 @@ from bokeh.layouts import gridplot
 from bokeh.models import ColumnDataSource, CustomJS, Range1d, LinearAxis
 from bokeh.models import HoverTool
 from bokeh.events import DoubleTap
+from bokeh.plotting.figure import Figure
 
 
-def montecarlo_a_year(trades, init_assets, ruin_point):
-    # ランダムにトレードを選択し、その合算期間が一年を越したところで止める
-    num_trades = len(trades)
-    term = timedelta(days=0)
-    asset_hist = [init_assets]
-    has_ruin = False
+class Montecarlo:
+    """モンテカルロテストを行い、結果をプロットするクラス
 
-    while term < timedelta(days=365):
-        i = randrange(num_trades)
-        term += trades.Duration.iat[i]
-        current_asset = asset_hist[-1]
-        asset_hist.append(
-            current_asset + asset_hist[-1] * trades.ReturnPct.iat[i]
-        )
+    Attributes:
+        trades(pd.DataFrame): トレード履歴
+        init_assets(float): 初期資産
+        ruin_point(float): 破産とする資産の閾値
+        ret_list(list[float]): シミュレーション結果 リターンのリスト
+        dd_list(list[float]): シミュレーション結果 ドローダウンのリスト
+        ruin_list(list[bool]): シミュレーション結果 破産したかのリスト
 
-    asset_sr = pd.Series(asset_hist, dtype='float')
-    if asset_sr.min() < ruin_point:
-        has_ruin = True
+    """
 
-    ret = asset_sr.iat[-1] / init_assets - 1.0
-    max_dd = (asset_sr / asset_sr.cummax() - 1).min()
-    return ret, max_dd, has_ruin
+    def __init__(
+        self,
+        trades: pd.DataFrame,
+        init_assets: float,
+        ruin_point: float,
+        seed: int = 2022
+    ) -> None:
+        """テストに使うトレードと初期資産、破産の閾値をセット
+
+        Args:
+            trades: バックテストから得られるトレード履歴 _Stats.trades
+            init_assets: 初期資産
+            ruin_point: 破産とする資産の閾値
+            seed: ランダム値を再現するための設定
+
+        """
+        random.seed(seed)
+        self.trades = trades
+        self.init_assets = init_assets
+        self.ruin_point = ruin_point
+
+    def _montecarlo_a_year(
+        self,
+    ) -> tuple[float, float, bool]:
+        """一年分のモンテカルロテストを行う
+
+        バックテスト結果からランダムにトレードを選択し、
+        そのリターン比率を資産にかけるという操作を一年分繰り返す
+        このテストはバックテストの各トレードが独立した結果であることを仮定している
+
+        Returns:
+            一年分のシミュレート結果のリターン資産, 最大ドロップダウン, 破産したかのブール値
+
+        """
+        num_trades = len(self.trades)
+        term = timedelta(days=0)
+        asset_hist = [self.init_assets]
+        has_ruin = False
+
+        while term < timedelta(days=365):
+            i = random.randrange(num_trades)
+            term += self.trades.Duration.iat[i]
+            current_asset = asset_hist[-1]
+            asset_hist.append(
+                current_asset + asset_hist[-1] * self.trades.ReturnPct.iat[i]
+            )
+
+        asset_sr = pd.Series(asset_hist, dtype='float')
+        if asset_sr.min() < self.ruin_point:
+            has_ruin = True
+
+        ret = float(asset_sr.iat[-1] / self.init_assets - 1.0)
+        max_dd = float((asset_sr / asset_sr.cummax() - 1).min())
+        return ret, max_dd, has_ruin
+
+    def run(self, sim_times: int = 1500) -> None:
+        """モンテカルロテストを所定回数行う
+
+        _montecarlo_a_year関数を指定回数行い、その結果(リターン,ドロップダウン、破産したかどうか)を
+        リストに格納する
+        このリストを元にモンテカルロテストの集計やグラフ化を行う
+
+        Args:
+            sim_times: シミュレーションの回数 多いほど集計結果が信頼できるが、時間がかかる
+
+        """
+        self.ret_list = []
+        self.dd_list = []
+        self.ruin_list = []
+        for i in tqdm(range(sim_times)):
+            ret, dd, has_ruin = self._montecarlo_a_year()
+            self.ret_list.append(ret)
+            self.dd_list.append(dd)
+            self.ruin_list.append(has_ruin)
+
+    def make_report_graph(self, filename: str) -> None:
+        """モンテカルロテストのレポートグラフを作成する
+
+        runメソッド後にできるリターンリスト、ドロップダウンリストから、
+        ヒストグラムとメジアンを計算し、プロットする
+        プロットはhtmlファイルを出力する
+        リターンとドロップダウンのメジアンの比率は1.5以上はほしい
+
+        Args:
+            filename: 出力するグラフのファイル名
+
+        """
+        ret50 = pd.Series(self.ret_list, dtype='float').median()
+        dd50 = pd.Series(self.dd_list, dtype='float').median()
+        p1 = _make_hist(self.ret_list, f'リターンメジアン:{ret50:.3f}', 50)
+        p2 = _make_hist(self.dd_list, f'最大ドロップダウンメジアン:{dd50:.3f}', 50)
+        output_file(filename)
+        save(gridplot([p1, p2], sizing_mode='stretch_width', height=400, ncols=2))
 
 
-def make_hist(sr: pd.Series, title, bins=50):
-    hist, edges = np.histogram(sr, density=True, bins=bins)
+def _make_hist(lst: list[float], title: str, bins: int | None = 50) -> Figure:
+    """度数分布と累積度数分布を出力する
+
+    Args:
+        lst: モンテカルロテストで得られたリターンやドロップダウンのリストを入力
+        title: メジアンをタイトルにすると、結果がひと目でわかる
+        bins: ヒストグラムのビン数
+
+    Returns:
+        bokehのFigureを返す これを返却先でsaveする
+
+    """
+    hist, edges = np.histogram(lst, density=True, bins=bins)
     cum = np.cumsum(hist) * (edges[1] - edges[0])
     source = ColumnDataSource(
         {'hist': hist, 'cum': cum, 'left': edges[:-1], 'right': edges[1:]}
@@ -72,15 +170,6 @@ def make_hist(sr: pd.Series, title, bins=50):
     p.add_layout(LinearAxis(y_range_name='累積'), 'right')
     p.hover.renderers = [line]
     return p
-
-
-def make_report_graph(ret_list, dd_list, filename):
-    ret50 = pd.Series(ret_list, dtype='float').median()
-    dd50 = pd.Series(dd_list, dtype='float').median()
-    p1 = make_hist(pd.Series(ret_list), f'リターンメジアン:{ret50:.3f}', 50)
-    p2 = make_hist(pd.Series(dd_list), f'最大ドロップダウンメジアン:{dd50:.3f}', 50)
-    output_file(filename)
-    save(gridplot([p1, p2], sizing_mode='stretch_width', height=400, ncols=2))
 
 
 if __name__ == '__main__':
