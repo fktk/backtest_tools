@@ -13,14 +13,16 @@ from bokeh.models.tools import BoxZoomTool
 class Candlestick:
     """複数のローソク足グラフを縦に並べる
 
+    Attributes:
+        p(list): 複数のFigureを格納しておく
+
     """
 
-    p = []
     w = 12 * 60 * 60 * 1000  # half day in ms
     TOOLS = "pan,ywheel_zoom,crosshair,save"
-    hovertool = HoverTool(
+    hovertool: HoverTool = HoverTool(
         tooltips=[
-            ('Date', '@Date{%F}'),
+            ('Date', '@index{%F}'),
             ('Open', '@Open'),
             ('Close', '@Close'),
             ('High', '@High'),
@@ -28,10 +30,13 @@ class Candlestick:
             ('Volume', '@Volume'),
         ],
         formatters={
-            '@Date': 'datetime',
+            '@index': 'datetime',
         },
         mode='vline',
     )
+
+    def __init__(self) -> None:
+        self.p = []
 
     def _make_candle_figure(self) -> tuple[Figure, Figure]:
         """ローソク足と出来高プロット用のFigureを用意する
@@ -65,11 +70,16 @@ class Candlestick:
 
         return p, p2
 
-    def add_chart(self, df: pd.DataFrame, date: date, title):
+    def add_chart(self, df: pd.DataFrame, date: date, title: str) -> None:
         """ローソク足と出来高グラフを追加する
 
+        ローソク足と出来高を縦にならべて、self.pに追加する
+        最終的に追加したself.pを出力する
+
         Args:
-            df
+            df: OHLCV形式のデータ 頭文字は大文字
+            date: 網掛けする日付け
+            title: タイトル
 
         """
         p, p2 = self._make_candle_figure()
@@ -93,26 +103,32 @@ class Candlestick:
         view_dec = CDSView(source=source, filters=[BooleanFilter(dec)])
 
         p.segment(
-            'Date', 'High', 'Date', 'Low',
+            'index', 'High', 'index', 'Low',
             color="black", source=source, line_width=2,
         )
         p.vbar(
-            'Date', self.w, 'Open', 'Close',
+            'index', self.w, 'Open', 'Close',
             fill_color="red", line_color="black",
             source=source, view=view_inc
         )
         p.vbar(
-            'Date', self.w, 'Open', 'Close',
+            'index', self.w, 'Open', 'Close',
             fill_color="blue", line_color="black",
             source=source, view=view_dec
         )
         p2.vbar(
-            x='Date', top='Volume', width=1, fill_color='black', source=source
+            x='index', top='Volume', width=1, fill_color='black', source=source
         )
 
         self.p.append(column(p, p2))
 
-    def save(self, filename):
+    def save(self, filename: str) -> None:
+        """グラフを出力する
+
+        Args:
+            filename: 出力するHTMLファイルの名前
+
+        """
         output_file(filename)
         save(gridplot(self.p, sizing_mode='stretch_width', ncols=1))
 
@@ -158,11 +174,11 @@ def plot_candlestick_with_rangeslider(
     )
     hovertool = HoverTool(
         tooltips=[
-            ('date', '@index{%F}'),
-            ('open', '@Open'),
-            ('close', '@Close'),
-            ('high', '@High'),
-            ('low', '@Low'),
+            ('Date', '@index{%F}'),
+            ('Open', '@Open'),
+            ('Close', '@Close'),
+            ('High', '@High'),
+            ('Low', '@Low'),
         ],
         formatters={
             '@index': 'datetime',

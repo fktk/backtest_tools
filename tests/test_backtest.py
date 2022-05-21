@@ -4,11 +4,15 @@ from tqdm import tqdm
 import pandas as pd
 
 from backtest_tools.backtest import out_of_sample
-from backtest_tools.read_price import parse_protra_data
+from backtest_tools import parse_protra_data
 from backtest_tools.get_ranking import get_indices
 
+from backtesting.test import GOOG
 
-def test_out_of_sample(sample_data, EmaCross):
+
+def test_out_of_sample(get_strategy):
+    TestStrategy = get_strategy
+
     optimize_params = {
         'n1': range(5, 15, 2),
         'n2': range(10, 30, 2),
@@ -19,13 +23,13 @@ def test_out_of_sample(sample_data, EmaCross):
         'constraint': lambda param: param.n1 < param.n2,
     }
 
-    df = sample_data
     in_date = (date(2006, 1, 1), date(2010, 1, 1))
     out_date = (date(2010, 1, 1), date(2015, 1, 1))
 
     stats_in, stats_out = out_of_sample(
-        df, in_date, out_date, EmaCross, optimize_params, optimize_config
+        GOOG, in_date, out_date, TestStrategy, optimize_params, optimize_config
     )
+    print(stats_in)
     print(stats_out)
 
 
