@@ -1,22 +1,18 @@
-import pytest
 from datetime import date
 
 from backtesting.test import GOOG
 
 from backtest_tools.backtest import out_of_sample
-from backtest_tools.plotting.plottings import plot_candlestick_with_rangeslider
-from backtest_tools.plotting.plottings import Candlestick
-from backtest_tools.plotting.plottings import compare_in_out
+from backtest_tools.plottings import plot_candlestick_with_rangeslider
+from backtest_tools.plottings import Candlestick
+from backtest_tools.plottings import compare_in_out
 
 from backtest_tools.get_ranking import get_ranking
 from backtest_tools.read_price import parse_protra_data
 
-from backtest_tools.my_strategy.ema_cross import EmaCross, optimize_config, optimize_params
-
 
 def test_plot_candlestick():
-    df = GOOG
-    plot_candlestick_with_rangeslider(df, 'tests/candle.html')
+    plot_candlestick_with_rangeslider(GOOG, 'tests/candle.html')
 
 
 def test_plot_multi_candle():

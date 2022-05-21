@@ -1,5 +1,8 @@
+from __future__ import annotations
 import pandas as pd
+from datetime import date
 from bokeh.plotting import figure, save, output_file
+from bokeh.plotting.figure import Figure
 from bokeh.layouts import gridplot, column
 from bokeh.models import ColumnDataSource, CDSView, CustomJS
 from bokeh.models import BooleanFilter, HoverTool, Span, RangeTool
@@ -8,6 +11,9 @@ from bokeh.models.tools import BoxZoomTool
 
 
 class Candlestick:
+    """複数のローソク足グラフを縦に並べる
+
+    """
 
     p = []
     w = 12 * 60 * 60 * 1000  # half day in ms
@@ -27,7 +33,12 @@ class Candlestick:
         mode='vline',
     )
 
-    def _make_candle_figure(self):
+    def _make_candle_figure(self) -> tuple[Figure, Figure]:
+        """ローソク足と出来高プロット用のFigureを用意する
+
+        Returns: ローソク足と出来高用のFigureのtupleを返す
+
+        """
         p = figure(
             max_width=600, height=200,
             x_axis_type="datetime",
@@ -54,7 +65,13 @@ class Candlestick:
 
         return p, p2
 
-    def add_chart(self, df, date, title):
+    def add_chart(self, df: pd.DataFrame, date: date, title):
+        """ローソク足と出来高グラフを追加する
+
+        Args:
+            df
+
+        """
         p, p2 = self._make_candle_figure()
         p.title = title
 
@@ -100,18 +117,45 @@ class Candlestick:
         save(gridplot(self.p, sizing_mode='stretch_width', ncols=1))
 
 
-def plot_candlestick_with_rangeslider(df: pd.DataFrame, filename):
+def plot_candlestick_with_rangeslider(
+    df: pd.DataFrame,
+    filename: str
+) -> None:
+    """レンジスライダー付きローソク足グラフを作る
 
+    Args:
+        df: OHLCV形式のデータ 頭文字は大文字
+        filename: 出力するファイル名
+
+    """
     source = ColumnDataSource(data=df)
-    print(source.data)
 
-    inc = df.Close > df.Open
+    inc = df.Close >= df.Open
     view_inc = CDSView(source=source, filters=[BooleanFilter(inc)])
     dec = df.Open > df.Close
     view_dec = CDSView(source=source, filters=[BooleanFilter(dec)])
-    w = 12 * 60 * 60 * 1000  # half day in ms
+    w = 18 * 60 * 60 * 1000  # half day in ms
 
     TOOLS = "pan,xwheel_zoom,ywheel_zoom,crosshair"
+    p = figure(
+        height=400, sizing_mode='stretch_width',
+        x_axis_type="datetime",
+        tools=TOOLS,
+        x_range=(df.index.values[0], df.index.values[-1])
+    )
+    p.grid.grid_line_alpha = 0.3
+
+    p.segment('index', 'High', 'index', 'Low', color="black", source=source)
+    r1 = p.vbar(
+        'index', w, 'Open', 'Close',
+        fill_color="#D5E1DD", line_color="black",
+        source=source, view=view_inc
+    )
+    r2 = p.vbar(
+        'index', w, 'Open', 'Close',
+        fill_color="#F2583E", line_color="black",
+        source=source, view=view_dec
+    )
     hovertool = HoverTool(
         tooltips=[
             ('date', '@index{%F}'),
@@ -124,50 +168,35 @@ def plot_candlestick_with_rangeslider(df: pd.DataFrame, filename):
             '@index': 'datetime',
         },
         mode='vline',
-    )
-
-    p = figure(
-        height=400, sizing_mode='stretch_width',
-        x_axis_type="datetime",
-        tools=TOOLS,
-        x_range=(df.index.values[0], df.index.values[-1])
+        renderers=[r1, r2]
     )
     p.add_tools(hovertool)
-    p.grid.grid_line_alpha = 0.3
 
-    r = p.segment('index', 'High', 'index', 'Low', color="black", source=source)
-    p.vbar(
-        'index', w, 'Open', 'Close',
-        fill_color="#D5E1DD", line_color="black",
-        source=source, view=view_inc
-    )
-    p.vbar(
-        'index', w, 'Open', 'Close',
-        fill_color="#F2583E", line_color="black",
-        source=source, view=view_dec
-    )
+    p.js_on_event(DoubleTap, CustomJS(args=dict(p=p), code='p.reset.emit()'))
 
-    select = figure(
+    slider = _set_rangeslider_for_p(p, source)
+
+    output_file(filename)
+    save(column(p, slider, sizing_mode='stretch_width'))
+
+
+def _set_rangeslider_for_p(p, source):
+    slider = figure(
         height=100, sizing_mode='stretch_width',
         x_axis_type="datetime", y_axis_type=None,
         tools="", toolbar_location=None,
         background_fill_color="#eee"
     )
-    select.ygrid.grid_line_color = None
+    slider.ygrid.grid_line_color = None
 
     range_tool = RangeTool(x_range=p.x_range)
     range_tool.overlay.fill_color = "navy"
     range_tool.overlay.fill_alpha = 0.2
 
-    select.line('index', 'Close', source=source)
-    select.add_tools(range_tool)
-    select.toolbar.active_multi = range_tool
-
-    p.js_on_event(DoubleTap, CustomJS(args=dict(p=p), code='p.reset.emit()'))
-    p.hover.renderers = [r]
-
-    output_file(filename)
-    save(column(p, select, sizing_mode='stretch_width'))
+    slider.line('index', 'Close', source=source)
+    slider.add_tools(range_tool)
+    slider.toolbar.active_multi = range_tool
+    return slider
 
 
 def compare_in_out(stats_in, stats_out):

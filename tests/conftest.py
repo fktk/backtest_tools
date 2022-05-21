@@ -30,11 +30,6 @@ def get_strategy():
 
 
 @pytest.fixture
-def sample_data():
-    return GOOG
-
-
-@pytest.fixture
 def sample_stats():
     bt = Backtest(GOOG, EmaCross)
     stats = bt.run()

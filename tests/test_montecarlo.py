@@ -6,4 +6,4 @@ def test_mont_report(sample_stats):
 
     mont = Montecarlo(trades, 1_000_000., 800_000)
     mont.run(sim_times=2000)
-    mont.make_report_graph('mont.html')
+    mont.make_report_graph('tests/mont.html')
