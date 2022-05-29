@@ -2,7 +2,7 @@ from backtesting.test import GOOG
 
 from backtest_tools.plottings import plot_candlestick_with_rangeslider
 from backtest_tools.plottings import Candlestick
-from backtest_tools.plottings import compare_in_out
+from backtest_tools.plottings import ScatterWithHistogram
 
 
 def test_plot_candlestick():
@@ -23,7 +23,11 @@ def test_plot_multi_candle(sample_stats):
 
 
 def test_compare_in_out(sample_stats):
-    stats_in = sample_stats
-    stats_out = sample_stats
+    trades = sample_stats._trades
+    trades_in = trades.sample(frac=0.7, random_state=2022)
+    trades_out = trades.query('index not in @trades_in.index')
 
-    compare_in_out(stats_in, stats_out)
+    plot = ScatterWithHistogram()
+    plot.add_record(trades_in, trades_out)
+    plot.save('tests/hist.html')
+    # print(dir(plot.p))

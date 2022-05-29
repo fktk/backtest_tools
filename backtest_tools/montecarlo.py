@@ -15,6 +15,11 @@ from bokeh.plotting.figure import Figure
 class Montecarlo:
     """モンテカルロテストを行い、結果をプロットするクラス
 
+    バックテストを行ったときに生成されたトレード履歴を使って、
+    モンテカルロ・シミュレーションを行う。
+    トレード履歴の結果が各々独立ならば、無作為に抽出したトレードを
+    加算した結果の分布は、戦略が取りうる結果の分布である。
+
     Attributes:
         trades(pd.DataFrame): トレード履歴
         init_assets(float): 初期資産

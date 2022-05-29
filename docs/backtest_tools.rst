@@ -12,14 +12,6 @@ backtest\_tools.backtest module
    :undoc-members:
    :show-inheritance:
 
-backtest\_tools.get\_ranking module
------------------------------------
-
-.. automodule:: backtest_tools.get_ranking
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 backtest\_tools.montecarlo module
 ---------------------------------
 

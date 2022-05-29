@@ -1,6 +1,5 @@
 from __future__ import annotations
 from datetime import date
-from typing import Optional
 
 import pandas as pd
 from backtesting import Backtest, Strategy
@@ -13,8 +12,7 @@ def out_of_sample(
     out_date: tuple[date, date],
     MyStrategy: Strategy,
     optimize_params: dict,
-    optimize_config: dict,
-    backtest_config: Optional[dict] = {'cash': 100_000, 'commission': .002}
+    backtest_config: dict | None = {'cash': 100_000, 'commission': .002}
 ) -> tuple[_Stats, _Stats]:
     """アウトオブサンプルテストを一度実行する
 
@@ -26,8 +24,7 @@ def out_of_sample(
         in_date: インサンプルテストの開始と終了日
         out_date: アウトオブサンプルテストの開始と終了日
         MyStrategy: 戦略クラス インスタンスではない
-        optimize_params: 最適化を行うパラメータの範囲
-        optimize_config: 最適化の条件 詳しくはbacktesting.py
+        optimize_params: 最適化パラメータ 詳しくはbacktesting.py
         backtest_config: バックテストクラス用の設定
 
     Returns:
@@ -37,10 +34,7 @@ def out_of_sample(
 
     df_in = df.query('@in_date[0] <= index < @in_date[1]')
     bt_in = Backtest(df_in, MyStrategy, **backtest_config)
-    stats_in = bt_in.optimize(
-        **optimize_params,
-        **optimize_config,
-    )
+    stats_in = bt_in.optimize(**optimize_params)
 
     for k, v in stats_in._strategy._params.items():
         setattr(MyStrategy, k, v)
