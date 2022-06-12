@@ -24,10 +24,11 @@ def test_plot_multi_candle(sample_stats):
 
 def test_compare_in_out(sample_stats):
     trades = sample_stats._trades
-    trades_in = trades.sample(frac=0.7, random_state=2022)
-    trades_out = trades.query('index not in @trades_in.index')
+    trades_in = trades.sample(frac=0.7, random_state=2022).copy()
+    trades_out = trades.query('index not in @trades_in.index').copy()
+    trades_in['strategy'] = 'In'
+    trades_out['strategy'] = 'Out'
 
     plot = ScatterWithHistogram()
     plot.add_record(trades_in, trades_out)
     plot.save('tests/hist.html')
-    # print(dir(plot.p))

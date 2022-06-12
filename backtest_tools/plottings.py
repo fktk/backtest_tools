@@ -282,21 +282,22 @@ class ScatterWithHistogram:
                 )
 
     def add_record(self, trades_in, trades_out):
-        source = self._set_source(trades_in, trades_out)
-        hsource = self._set_hist_source(
+        self.source = self._set_source(trades_in, trades_out)
+        self.hsource = self._set_hist_source(
                 trades_in.Duration.dt.days,
                 trades_out.Duration.dt.days,
                 )
 
-        vsource = self._set_hist_source(
+        self.vsource = self._set_hist_source(
                 trades_in.ReturnPct,
                 trades_out.ReturnPct,
                 )
 
+    def _plot(self):
         self.p.scatter(
                 'Duration_date',
                 'ReturnPct',
-                source=source,
+                source=self.source,
                 size=8,
                 color=factor_cmap('name', 'Category10_3', ['In', 'Out']),
                 alpha=0.6
@@ -306,14 +307,14 @@ class ScatterWithHistogram:
                 top='hist', bottom=0, left='left', right='right',
                 fill_color=factor_cmap('name', 'Category10_3', ['In', 'Out']),
                 line_color='white', alpha=0.5,
-                source=hsource,
+                source=self.hsource,
                 )
 
         self.pv.quad(
                 right='hist', left=0, bottom='left', top='right',
                 fill_color=factor_cmap('name', 'Category10_3', ['In', 'Out']),
                 line_color='white', alpha=0.5,
-                source=vsource,
+                source=self.vsource,
                 )
 
     def _set_source(self, trades_in, trades_out):
