@@ -65,24 +65,24 @@ class Montecarlo:
 
         """
         num_trades = len(self.trades)
-        term = timedelta(days=0)
+        sum_duration = timedelta(days=0)
         asset_hist = [self.init_assets]
         has_ruin = False
 
-        while term < timedelta(days=365):
+        while sum_duration < timedelta(days=365):
             i = random.randrange(num_trades)
-            term += self.trades.Duration.iat[i]
+            sum_duration += self.trades.Duration.iat[i]
             current_asset = asset_hist[-1]
             asset_hist.append(
                 current_asset + asset_hist[-1] * self.trades.ReturnPct.iat[i]
             )
 
-        asset_sr = pd.Series(asset_hist, dtype='float')
-        if asset_sr.min() < self.ruin_point:
+        sr_asset = pd.Series(asset_hist, dtype='float')
+        if sr_asset.min() < self.ruin_point:
             has_ruin = True
 
-        ret = float(asset_sr.iat[-1] / self.init_assets - 1.0)
-        max_dd = float((asset_sr / asset_sr.cummax() - 1).min())
+        ret = float(sr_asset.iat[-1] / self.init_assets - 1.0)
+        max_dd = float((sr_asset / sr_asset.cummax() - 1).min())
         return ret, max_dd, has_ruin
 
     def run(self, sim_times: int = 1500) -> None:

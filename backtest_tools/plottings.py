@@ -9,10 +9,11 @@ from bokeh.plotting import figure, save, output_file
 from bokeh.plotting.figure import Figure
 from bokeh.layouts import gridplot, column
 from bokeh.models import ColumnDataSource, CDSView, CustomJS
-from bokeh.models import BooleanFilter, HoverTool, Span, RangeTool
+from bokeh.models import HoverTool, Span, RangeTool
+from bokeh.models import BooleanFilter, GroupFilter
 from bokeh.events import DoubleTap
 from bokeh.models.tools import BoxZoomTool
-from bokeh.transform import factor_cmap
+from bokeh.palettes import Category10_10 as palette
 
 
 class Candlestick:
@@ -226,39 +227,51 @@ def _set_rangeslider_for_p(p, source):
     return slider
 
 
-class ScatterWithHistogram:
-    """アウトオブサンプルテストのリターンと保持期間の関係性を比較
+class PlotTradeResults:
+    """トレードのリターンと保持期間の関係性をプロットする
 
-    アウトオブサンプルテストではイン期間とアウト期間でトレード履歴が得られる
-    それぞれのリターンと保持期間をプロットし、比較することで、
-    アウト期間のデータがイン期間と同等かを確認する
+    ある戦略を特徴付ける指標は、バックテストで得られたトレード履歴における
+    リターン分布と保持期間分布である。
+    そのリターン分布、保持期間分布の散布状態を、複数の戦略同士、イン期間とアウト期間、
+    ブル相場とベア相場、戦略構築時と実際の取引結果などで比較することで、
+    戦略の優位性、市場の状態に応じた特性、堅牢性などを評価できると考えている。
 
     Args:
-        trades_in: イン期間のトレード履歴
-        trades_out: アウト期間のトレード履歴
-        output: 出力するファイル名
+        title: プロットのタイトル
+        bins: サイドにおいた度数分布のビン数
+
+    Attributes:
+        bins: 度数分布のビン数
+        p: 散布図用のfigure
+        ph: 保持期間の度数分布用のfigure
+        pv: リターンの度数分布用のfigure
+        df_trades: 追加したすべてのトレード履歴
 
     """
 
-    def __init__(self) -> None:
+    def __init__(self, title: str, bins: int = 20) -> None:
+        self.bins = bins
         self.p = figure(
-                title='インとアウトの比較',
+                title=title,
                 tools='pan,wheel_zoom,crosshair',
-                width=400,
-                height=400,
-                x_axis_location=None,
-                y_axis_location=None,
+                width=500,
+                height=500,
+                x_axis_location='above',
+                y_axis_location='left',
                 background_fill_color='#fafafa',
                 toolbar_location='above',
+                active_scroll='wheel_zoom',
                 )
         hovertool = HoverTool(
                 tooltips=[
-                    ('Duration', '@Duration_date'),
-                    ('Return', '@ReturnPct'),
+                    ('Duration', '@Duration'),
+                    ('Return', '@ReturnPct{%0.2f}'),
                 ],
                 mode='mouse',
                 )
         self.p.add_tools(hovertool)
+        self.p.yaxis.axis_label = 'リターン'
+        self.p.xaxis.axis_label = '日数'
 
         self.ph = figure(
                 toolbar_location=None,
@@ -270,6 +283,7 @@ class ScatterWithHistogram:
         self.pv = figure(
                 toolbar_location=None, width=200, height=self.p.height,
                 y_range=self.p.y_range,
+                x_axis_location='above',
                 y_axis_location='right',
                 background_fill_color='#fafafa',
                 )
@@ -281,88 +295,109 @@ class ScatterWithHistogram:
                     code='p.reset.emit(); pv.reset.emit(); ph.reset.emit();')
                 )
 
-    def add_record(self, trades_in, trades_out):
-        self.source = self._set_source(trades_in, trades_out)
-        self.hsource = self._set_hist_source(
-                trades_in.Duration.dt.days,
-                trades_out.Duration.dt.days,
-                )
+        self.df_trades = None
 
-        self.vsource = self._set_hist_source(
-                trades_in.ReturnPct,
-                trades_out.ReturnPct,
-                )
+    def add_record(self, trades: pd.DataFrame, legend: str) -> None:
+        """トレード履歴を追加する
 
-    def _plot(self):
-        self.p.scatter(
-                'Duration_date',
-                'ReturnPct',
-                source=self.source,
-                size=8,
-                color=factor_cmap('name', 'Category10_3', ['In', 'Out']),
-                alpha=0.6
-                )
+        Args:
+            trades: トレード履歴(stats._tradesを想定)
+            legend: 凡例(識別、色分け用)
 
-        self.ph.quad(
-                top='hist', bottom=0, left='left', right='right',
-                fill_color=factor_cmap('name', 'Category10_3', ['In', 'Out']),
-                line_color='white', alpha=0.5,
-                source=self.hsource,
-                )
-
-        self.pv.quad(
-                right='hist', left=0, bottom='left', top='right',
-                fill_color=factor_cmap('name', 'Category10_3', ['In', 'Out']),
-                line_color='white', alpha=0.5,
-                source=self.vsource,
-                )
-
-    def _set_source(self, trades_in, trades_out):
-        trades_in.loc[:, 'name'] = 'In'
-        trades_out.loc[:, 'name'] = 'Out'
-        trades_in.loc[:, 'Duration_date'] = trades_in['Duration'].dt.days
-        trades_out.loc[:, 'Duration_date'] = trades_out['Duration'].dt.days
-        scatter_data = pd.concat([
-            trades_in.loc[:, ['name', 'ReturnPct', 'Duration_date']],
-            trades_out.loc[:, ['name', 'ReturnPct', 'Duration_date']],
+        """
+        trades['legend'] = legend
+        trades['Duration'] = trades['Duration'].dt.days
+        self.df_trades = pd.concat([
+            self.df_trades,
+            trades,
             ])
 
-        source = ColumnDataSource(data=scatter_data)
-        return source
+    def _plot(self) -> None:
+        legends = self.df_trades['legend'].unique()
+        scatter_source = ColumnDataSource(self.df_trades)
+        h_df = self._set_hist_source(self.df_trades['Duration'])
+        v_df = self._set_hist_source(self.df_trades['ReturnPct'])
 
-    def _set_hist_source(self, sr_in, sr_out):
-        source = ColumnDataSource({
-            'hist': [],
-            'left': [],
-            'right': [],
-            'name': [],
-            })
-        dur_range_max = max(sr_in.max(), sr_out.max())
-        dur_range_min = min(sr_in.min(), sr_out.min())
+        for i, legend in enumerate(legends):
+            self.p.scatter(
+                    'Duration',
+                    'ReturnPct',
+                    source=scatter_source,
+                    view=CDSView(
+                        source=scatter_source,
+                        filters=[GroupFilter(
+                            column_name='legend',
+                            group=legend,
+                            )]
+                        ),
+                    legend_label=legend,
+                    size=12,
+                    color=palette[i % 10],
+                    alpha=0.4
+                    )
 
-        hist_in, edges_in = np.histogram(
-                sr_in, bins=20,
-                range=(dur_range_min, dur_range_max),
-                )
-        hist_out, edges_out = np.histogram(
-                sr_out, bins=20,
-                range=(dur_range_min, dur_range_max),
-                )
-        source.stream({
-            'hist': hist_in,
-            'left': edges_in[:-1],
-            'right': edges_in[1:],
-            'name': ['In' for i in range(len(hist_in))],
-            })
-        source.stream({
-            'hist': hist_out,
-            'left': edges_out[:-1],
-            'right': edges_out[1:],
-            'name': ['Out' for i in range(len(hist_out))],
-            })
-        return source
+            self.ph.scatter(
+                    h_df[h_df['legend'] == legend]['x'],
+                    h_df[h_df['legend'] == legend]['hist'],
+                    color=palette[i % 10],
+                    alpha=0.5,
+                    size=6,
+                    )
+            self.ph.line(
+                    h_df[h_df['legend'] == legend]['x'],
+                    h_df[h_df['legend'] == legend]['hist'],
+                    color=palette[i % 10],
+                    line_width=4,
+                    alpha=0.4,
+                    )
 
-    def save(self, output):
+            self.pv.scatter(
+                    v_df[h_df['legend'] == legend]['hist'],
+                    v_df[h_df['legend'] == legend]['x'],
+                    color=palette[i % 10],
+                    alpha=0.5,
+                    size=6,
+                    )
+            self.pv.line(
+                    v_df[h_df['legend'] == legend]['hist'],
+                    v_df[h_df['legend'] == legend]['x'],
+                    color=palette[i % 10],
+                    line_width=4,
+                    alpha=0.4,
+                    )
+
+    def _set_hist_source(self, sr_line: pd.Series) -> pd.DataFrame:
+        range_max = sr_line.max()
+        range_min = sr_line.min()
+
+        source_line = None
+        legends = self.df_trades['legend'].unique()
+        for legend in legends:
+            sr = sr_line[self.df_trades['legend'] == legend]
+            hist, edge = np.histogram(
+                    sr,
+                    bins=self.bins,
+                    range=(range_min, range_max),
+                    )
+            mid_point = (edge[:-1] + edge[1:]) / 2
+            df_new = pd.DataFrame({
+                'x': mid_point,
+                'hist': hist,
+                'legend': legend,
+                })
+            source_line = pd.concat([source_line, df_new])
+        return source_line
+
+    def save(self, output: str):
+        """プロットを保存する
+
+        Args:
+            output: 出力するパス、ファイル名を文字列で入力
+
+        """
+        self._plot()
+        self.p.legend.location = 'top_left'
+        self.p.legend.click_policy = 'hide'
         layout = gridplot(
                 [[self.p, self.pv], [self.ph, None]],
                 merge_tools=False
