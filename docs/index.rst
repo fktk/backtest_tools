@@ -11,7 +11,6 @@ Welcome to backtest_tools's documentation!
    :caption: Contents:
 
    backtest
-   get_ranking
    montecarlo
    plottings
    read_price

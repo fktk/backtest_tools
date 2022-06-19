@@ -20,6 +20,12 @@ class Montecarlo:
     トレード履歴の結果が各々独立ならば、無作為に抽出したトレードを
     加算した結果の分布は、戦略が取りうる結果の分布である。
 
+    Args:
+        trades: バックテストから得られるトレード履歴 _Stats.trades
+        init_assets: 初期資産
+        ruin_point: 破産とする資産の閾値
+        seed: ランダム値を再現するための設定
+
     Attributes:
         trades(pd.DataFrame): トレード履歴
         init_assets(float): 初期資産
@@ -31,37 +37,28 @@ class Montecarlo:
     """
 
     def __init__(
-        self,
-        trades: pd.DataFrame,
-        init_assets: float,
-        ruin_point: float,
-        seed: int = 2022
-    ) -> None:
-        """テストに使うトレードと初期資産、破産の閾値をセット
-
-        Args:
-            trades: バックテストから得られるトレード履歴 _Stats.trades
-            init_assets: 初期資産
-            ruin_point: 破産とする資産の閾値
-            seed: ランダム値を再現するための設定
-
-        """
+            self,
+            trades: pd.DataFrame,
+            init_assets: float,
+            ruin_point: float,
+            seed: int = 2022
+            ) -> None:
         random.seed(seed)
         self.trades = trades
         self.init_assets = init_assets
         self.ruin_point = ruin_point
 
     def _montecarlo_a_year(
-        self,
-    ) -> tuple[float, float, bool]:
-        """一年分のモンテカルロテストを行う
+            self,
+            ) -> tuple[float, float, bool]:
+        """1年分のモンテカルロテストを行う
 
         バックテスト結果からランダムにトレードを選択し、
-        そのリターン比率を資産にかけるという操作を一年分繰り返す
+        そのリターン比率を資産にかけるという操作を1年分繰り返す
         このテストはバックテストの各トレードが独立した結果であることを仮定している
 
         Returns:
-            一年分のシミュレート結果のリターン資産, 最大ドロップダウン, 破産したかのブール値
+            1年分のシミュレート結果のリターン資産, 最大ドロップダウン, 破産したかのブール値
 
         """
         num_trades = len(self.trades)
@@ -70,12 +67,12 @@ class Montecarlo:
         has_ruin = False
 
         while sum_duration < timedelta(days=365):
-            i = random.randrange(num_trades)
+            i = random.randrange(num_trades)  # 無作為抽出部分
             sum_duration += self.trades.Duration.iat[i]
             current_asset = asset_hist[-1]
             asset_hist.append(
-                current_asset + asset_hist[-1] * self.trades.ReturnPct.iat[i]
-            )
+                    current_asset + asset_hist[-1] * self.trades.ReturnPct.iat[i]
+                    )
 
         sr_asset = pd.Series(asset_hist, dtype='float')
         if sr_asset.min() < self.ruin_point:
@@ -140,38 +137,38 @@ def _make_hist(lst: list[float], title: str, bins: int | None = 50) -> Figure:
     hist, edges = np.histogram(lst, density=True, bins=bins)
     cum = np.cumsum(hist) * (edges[1] - edges[0])
     source = ColumnDataSource(
-        {'hist': hist, 'cum': cum, 'left': edges[:-1], 'right': edges[1:]}
-    )
+            {'hist': hist, 'cum': cum, 'left': edges[:-1], 'right': edges[1:]}
+            )
 
     hovertool = HoverTool(
-        tooltips=[
-            ('区間', '@left{0.00}-@right{0.00}'),
-            ('度数', '@hist{0.00}'),
-            ('累積', '@cum{0.00}'),
-        ],
-        mode='vline',
-    )
+            tooltips=[
+                ('区間', '@left{0.00}-@right{0.00}'),
+                ('度数', '@hist{0.00}'),
+                ('累積', '@cum{0.00}'),
+                ],
+            mode='vline',
+            )
 
     TOOLS = "pan,crosshair,save"
     p = figure(title=title, tools=TOOLS, background_fill_color='#fafafa')
     p.add_tools(hovertool)
     p.js_on_event(
-        DoubleTap, CustomJS(args=dict(p=p), code='p.reset.emit()')
-    )
+            DoubleTap, CustomJS(args=dict(p=p), code='p.reset.emit()')
+            )
     p.quad(
-        source=source,
-        top='hist', bottom=0, left='left', right='right',
-        fill_color='navy', line_color='white', alpha=0.8
-    )
+            source=source,
+            top='hist', bottom=0, left='left', right='right',
+            fill_color='navy', line_color='white', alpha=0.8
+            )
     p.y_range.start = 0
 
     p.extra_y_ranges = {'累積': Range1d(start=0, end=1)}
     line = p.line(
-        source=source,
-        x='left', y='cum',
-        line_width=4, line_color='tomato', alpha=0.8,
-        y_range_name='累積',
-    )
+            source=source,
+            x='left', y='cum',
+            line_width=4, line_color='tomato', alpha=0.8,
+            y_range_name='累積',
+            )
     p.add_layout(LinearAxis(y_range_name='累積'), 'right')
     p.hover.renderers = [line]
     return p

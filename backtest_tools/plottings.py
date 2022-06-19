@@ -11,6 +11,7 @@ from bokeh.layouts import gridplot, column
 from bokeh.models import ColumnDataSource, CDSView, CustomJS
 from bokeh.models import HoverTool, Span, RangeTool
 from bokeh.models import BooleanFilter, GroupFilter
+from bokeh.models import NumeralTickFormatter
 from bokeh.events import DoubleTap
 from bokeh.models.tools import BoxZoomTool
 from bokeh.palettes import Category10_10 as palette
@@ -264,14 +265,24 @@ class PlotTradeResults:
                 )
         hovertool = HoverTool(
                 tooltips=[
-                    ('Duration', '@Duration'),
-                    ('Return', '@ReturnPct{%0.2f}'),
+                    ('エントリー日', '@EntryTime{%F}'),
+                    ('期間', '@Duration 日'),
+                    ('リターン', '@ReturnPct{%0.2f}'),
                 ],
                 mode='mouse',
+                formatters={
+                    '@EntryTime': 'datetime',
+                },
                 )
         self.p.add_tools(hovertool)
         self.p.yaxis.axis_label = 'リターン'
         self.p.xaxis.axis_label = '日数'
+        self.p.xaxis.major_label_text_font_size = '1.1em'
+        self.p.yaxis.major_label_text_font_size = '1.1em'
+        self.p.yaxis[0].formatter = NumeralTickFormatter(format='0%')
+        self.p.add_layout(
+                Span(location=0, dimension='width', line_color='red')
+                )
 
         self.ph = figure(
                 toolbar_location=None,
@@ -280,6 +291,7 @@ class PlotTradeResults:
                 background_fill_color="#fafafa",
                 )
         self.ph.xaxis.axis_label = '日数'
+        self.ph.xaxis.major_label_text_font_size = '1.1em'
         self.pv = figure(
                 toolbar_location=None, width=200, height=self.p.height,
                 y_range=self.p.y_range,
@@ -288,6 +300,10 @@ class PlotTradeResults:
                 background_fill_color='#fafafa',
                 )
         self.pv.yaxis.axis_label = 'リターン'
+        self.pv.yaxis.major_label_text_font_size = '1.1em'
+        self.pv.add_layout(
+                Span(location=0, dimension='width', line_color='red')
+                )
         self.p.js_on_event(
                 DoubleTap,
                 CustomJS(
@@ -312,8 +328,9 @@ class PlotTradeResults:
             trades,
             ])
 
-    def _plot(self) -> None:
-        legends = self.df_trades['legend'].unique()
+    def _plot(self, legend_col: str = 'legend') -> None:
+        legends = self.df_trades[legend_col].unique()
+
         scatter_source = ColumnDataSource(self.df_trades)
         h_df = self._set_hist_source(self.df_trades['Duration'])
         v_df = self._set_hist_source(self.df_trades['ReturnPct'])
@@ -326,7 +343,7 @@ class PlotTradeResults:
                     view=CDSView(
                         source=scatter_source,
                         filters=[GroupFilter(
-                            column_name='legend',
+                            column_name=legend_col,
                             group=legend,
                             )]
                         ),
@@ -337,43 +354,47 @@ class PlotTradeResults:
                     )
 
             self.ph.scatter(
-                    h_df[h_df['legend'] == legend]['x'],
-                    h_df[h_df['legend'] == legend]['hist'],
+                    h_df[h_df[legend_col] == legend]['x'],
+                    h_df[h_df[legend_col] == legend]['hist'],
                     color=palette[i % 10],
                     alpha=0.5,
                     size=6,
                     )
             self.ph.line(
-                    h_df[h_df['legend'] == legend]['x'],
-                    h_df[h_df['legend'] == legend]['hist'],
+                    h_df[h_df[legend_col] == legend]['x'],
+                    h_df[h_df[legend_col] == legend]['hist'],
                     color=palette[i % 10],
                     line_width=4,
                     alpha=0.4,
                     )
 
             self.pv.scatter(
-                    v_df[h_df['legend'] == legend]['hist'],
-                    v_df[h_df['legend'] == legend]['x'],
+                    v_df[h_df[legend_col] == legend]['hist'],
+                    v_df[h_df[legend_col] == legend]['x'],
                     color=palette[i % 10],
                     alpha=0.5,
                     size=6,
                     )
             self.pv.line(
-                    v_df[h_df['legend'] == legend]['hist'],
-                    v_df[h_df['legend'] == legend]['x'],
+                    v_df[h_df[legend_col] == legend]['hist'],
+                    v_df[h_df[legend_col] == legend]['x'],
                     color=palette[i % 10],
                     line_width=4,
                     alpha=0.4,
                     )
 
-    def _set_hist_source(self, sr_line: pd.Series) -> pd.DataFrame:
+    def _set_hist_source(
+            self,
+            sr_line: pd.Series,
+            legend_col: str = 'legend'
+            ) -> pd.DataFrame:
         range_max = sr_line.max()
         range_min = sr_line.min()
 
         source_line = None
-        legends = self.df_trades['legend'].unique()
+        legends = self.df_trades[legend_col].unique()
         for legend in legends:
-            sr = sr_line[self.df_trades['legend'] == legend]
+            sr = sr_line[self.df_trades[legend_col] == legend]
             hist, edge = np.histogram(
                     sr,
                     bins=self.bins,
@@ -383,21 +404,24 @@ class PlotTradeResults:
             df_new = pd.DataFrame({
                 'x': mid_point,
                 'hist': hist,
-                'legend': legend,
+                legend_col: legend,
                 })
             source_line = pd.concat([source_line, df_new])
         return source_line
 
-    def save(self, output: str):
+    def save(self, output: str, legend_col: str = 'legend'):
         """プロットを保存する
 
         Args:
             output: 出力するパス、ファイル名を文字列で入力
 
         """
-        self._plot()
+        self._plot(legend_col)
+
         self.p.legend.location = 'top_left'
         self.p.legend.click_policy = 'hide'
+        self.p.legend.label_text_font_size = '1.2em'
+
         layout = gridplot(
                 [[self.p, self.pv], [self.ph, None]],
                 merge_tools=False

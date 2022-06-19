@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from datetime import date
 
 import pandas as pd
@@ -109,7 +110,7 @@ def workforward(
         end_date = mid_date
 
         # アウトサンプル期間の最後まで持っている玉は除去する
-        # コピーするのは、queryのみだとビューを返し、その後代入するときにワーニングがでるため
+        # queryのみだとビューを返し、その後代入するときにワーニングがでるためcopy()する
         fin_trades = stats_out._trades.query('ExitBar != @out_bars').copy()
         fin_trades['Strategy'] = str(stats_out._strategy)
         trades = pd.concat([trades, fin_trades])
