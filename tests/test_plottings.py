@@ -1,8 +1,10 @@
 from backtesting.test import GOOG
+from datetime import date
 
 from backtest_tools.plottings import plot_candlestick_with_rangeslider
 from backtest_tools.plottings import Candlestick
 from backtest_tools.plottings import PlotTradeResults
+from backtest_tools.plottings import StackCharts
 
 
 def test_plot_candlestick():
@@ -35,3 +37,15 @@ def test_compare_in_out(sample_stats):
     plot.add_record(trades_mid, 'mid')
     plot.add_record(trades_out, 'out')
     plot.save('tests/outputs/hist.html')
+
+
+def test_stack_charts(get_strategy):
+    MyStrategy = get_strategy
+    charts = StackCharts()
+    charts.add(
+            GOOG.query('@date(2005, 4, 1) <= index < @date(2005, 8, 1)'),
+            MyStrategy,
+            title='hoge',
+            hatch_range=(date(2005, 6, 1), date(2005, 7, 1))
+            )
+    charts.save(filename='tests/outputs/stack.html')

@@ -3,7 +3,7 @@ from datetime import date
 from backtesting.test import GOOG
 
 from backtest_tools.backtest import out_of_sample
-from backtest_tools.backtest import workforward
+from backtest_tools.backtest import walkforward
 
 
 def test_out_of_sample(get_strategy):
@@ -31,7 +31,7 @@ def test_out_of_sample(get_strategy):
     print(stats_out._strategy)
 
 
-def test_workforward(get_strategy):
+def test_walkforward(get_strategy):
     TestStrategy = get_strategy
     optimize_params = {
         'n1': range(5, 16, 5),
@@ -39,4 +39,4 @@ def test_workforward(get_strategy):
         'maximize': 'SQN',
         'constraint': lambda param: param.n1 < param.n2,
     }
-    workforward(GOOG, TestStrategy, 3, 1, optimize_params)
+    walkforward(GOOG, TestStrategy, 3, 1, optimize_params)

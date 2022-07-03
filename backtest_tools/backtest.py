@@ -42,7 +42,7 @@ def out_of_sample(
     return stats_in, stats_out
 
 
-def workforward(
+def walkforward(
         df: pd.DataFrame,
         MyStrategy: Strategy,
         in_period: float,

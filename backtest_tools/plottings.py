@@ -1,20 +1,59 @@
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 
 import pandas as pd
 import numpy as np
 
-from bokeh.plotting import figure, save, output_file
+from bokeh.plotting import figure, save, output_file, reset_output
 from bokeh.plotting.figure import Figure
 from bokeh.layouts import gridplot, column
 from bokeh.models import ColumnDataSource, CDSView, CustomJS
-from bokeh.models import HoverTool, Span, RangeTool
+from bokeh.models import HoverTool, Span, RangeTool, BoxAnnotation
 from bokeh.models import BooleanFilter, GroupFilter
 from bokeh.models import NumeralTickFormatter
 from bokeh.events import DoubleTap
 from bokeh.models.tools import BoxZoomTool
 from bokeh.palettes import Category10_10 as palette
+from bokeh.io.state import curstate
+
+from backtesting import Backtest
+
+
+class StackCharts:
+
+    def __init__(self):
+        self.fig = []
+
+    def add(self, data, strategy, title=None, hatch_range=(None, None)):
+        strategy.next = lambda self: False
+
+        bt = Backtest(data, strategy)
+        bt.run()
+
+        fig = bt.plot(filename='tmp.html', superimpose=False)
+        # Path('tmp.html').unlink()
+
+        fig_ohlc = fig.children[0].children[0][0]
+        fig_ohlc.height = 200
+        fig_ohlc.js_on_event(DoubleTap, CustomJS(
+            args=dict(p=fig_ohlc), code='p.reset.emit()'
+            ))
+        fig_ohlc.add_layout(
+                BoxAnnotation(
+                    left=hatch_range[0],
+                    right=hatch_range[1],
+                    fill_color='red',
+                    fill_alpha=0.1,
+                    )
+                )
+        fig_ohlc.title = title
+        self.fig.append(fig)
+
+    def save(self, filename):
+        output_file(filename)
+        save(gridplot(self.fig, sizing_mode='stretch_width', ncols=1))
 
 
 class Candlestick:
@@ -332,8 +371,8 @@ class PlotTradeResults:
         legends = self.df_trades[legend_col].unique()
 
         scatter_source = ColumnDataSource(self.df_trades)
-        h_df = self._set_hist_source(self.df_trades['Duration'])
-        v_df = self._set_hist_source(self.df_trades['ReturnPct'])
+        h_df = self._set_hist_source(self.df_trades['Duration'], legend_col)
+        v_df = self._set_hist_source(self.df_trades['ReturnPct'], legend_col)
 
         for i, legend in enumerate(legends):
             self.p.scatter(
