@@ -24,7 +24,7 @@ def test_plot_multi_candle(sample_stats):
     plot.save('tests/outputs/charts.html')
 
 
-def test_compare_in_out(sample_stats):
+def test_result_plot(sample_stats):
     trades = sample_stats._trades
     trades_in = trades.sample(frac=0.5, random_state=2022).copy()
     trades = trades.query('index not in @trades_in.index').copy()

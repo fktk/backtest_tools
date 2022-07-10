@@ -36,6 +36,14 @@ backtest\_tools.read\_price module
    :undoc-members:
    :show-inheritance:
 
+backtest\_tools.utils module
+----------------------------
+
+.. automodule:: backtest_tools.utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Module contents
 ---------------
 

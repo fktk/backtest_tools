@@ -1,10 +1,18 @@
 from __future__ import annotations
 
+import os
+import warnings
+import multiprocessing as mp
 from datetime import date
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import pandas as pd
+import numpy as np
+from tqdm import tqdm
 from backtesting import Backtest, Strategy
 from backtesting._stats import _Stats
+
+from .utils import cut_not_closed_trades
 
 
 def out_of_sample(
@@ -129,6 +137,68 @@ def walkforward(
     print(results)
     print(trades)
     return results, trades
+
+
+def backtest_for_multiple_data(
+        data_name_tpl_lst: list[tuple[pd.DataFrame, str]],
+        strategy: Strategy
+        ) -> pd.DataFrame:
+    """
+    多数のデータを同じ戦略で計算する 高速化のためマルチプロセスで計算させている
+
+    Args:
+        data_name_tpl_lst: データと識別用の名前をタプルにして、それを多数用意し、リスト化したもの
+        strategy: 戦略クラス インスタンスではない
+
+    Returns:
+        バックテストのトレード履歴
+        バックテスト期間の最後まで保持していたポジションは削除している
+
+    """
+    code_batches = list(_batch(data_name_tpl_lst))
+
+    if mp.get_start_method(allow_none=False) == 'fork':
+        trades = pd.DataFrame({})
+        with ProcessPoolExecutor() as executor:
+            futures = [
+                    executor.submit(_batch_backtest, b_code_lst, strategy)
+                    for b_code_lst in code_batches]
+
+            for future in tqdm(as_completed(futures), total=len(futures)):
+                trades = pd.concat([trades, future.result()])
+
+    else:
+        if os.name == 'posix':
+            warnings.warn(
+                    "For multiprocessing support"
+                    "set multiprocessing start method to 'fork'.")
+        trades = _batch_backtest(data_name_tpl_lst, strategy)
+
+    return trades
+
+
+def _batch(seq: list):
+    n = np.clip(int(len(seq) // (os.cpu_count() or 1)), 1, 300)
+    for i in range(0, len(seq), n):
+        yield seq[i: i+n]
+
+
+def _batch_backtest(
+        data_name_tpl_lst: list[tuple[pd.DataFrame, str]],
+        strategy: Strategy
+        ) -> pd.DataFrame:
+
+    trades = pd.DataFrame({})
+    for data_name_tpl in tqdm(data_name_tpl_lst):
+        data = data_name_tpl[0]
+        name = data_name_tpl[1]
+        bt = Backtest(data, strategy)
+        stats = bt.run()
+        trade = cut_not_closed_trades(stats)
+        trade['name'] = name
+        del bt
+        trades = pd.concat([trades, trade])
+    return trades
 
 
 if __name__ == '__main__':

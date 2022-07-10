@@ -305,7 +305,7 @@ class PlotTradeResults:
         hovertool = HoverTool(
                 tooltips=[
                     ('エントリー日', '@EntryTime{%F}'),
-                    ('期間', '@Duration 日'),
+                    ('足の本数', '@DurationBars 本'),
                     ('リターン', '@ReturnPct{%0.2f}'),
                 ],
                 mode='mouse',
@@ -315,7 +315,7 @@ class PlotTradeResults:
                 )
         self.p.add_tools(hovertool)
         self.p.yaxis.axis_label = 'リターン'
-        self.p.xaxis.axis_label = '日数'
+        self.p.xaxis.axis_label = '足の本数'
         self.p.xaxis.major_label_text_font_size = '1.1em'
         self.p.yaxis.major_label_text_font_size = '1.1em'
         self.p.yaxis[0].formatter = NumeralTickFormatter(format='0%')
@@ -329,7 +329,7 @@ class PlotTradeResults:
                 x_range=self.p.x_range,
                 background_fill_color="#fafafa",
                 )
-        self.ph.xaxis.axis_label = '日数'
+        self.ph.xaxis.axis_label = '足の本数'
         self.ph.xaxis.major_label_text_font_size = '1.1em'
         self.pv = figure(
                 toolbar_location=None, width=200, height=self.p.height,
@@ -361,7 +361,8 @@ class PlotTradeResults:
 
         """
         trades['legend'] = legend
-        trades['Duration'] = trades['Duration'].dt.days
+        # trades['Duration'] = trades['Duration'].dt.days
+        trades['DurationBars'] = trades['ExitBar'] - trades['EntryBar']
         self.df_trades = pd.concat([
             self.df_trades,
             trades,
@@ -371,12 +372,12 @@ class PlotTradeResults:
         legends = self.df_trades[legend_col].unique()
 
         scatter_source = ColumnDataSource(self.df_trades)
-        h_df = self._set_hist_source(self.df_trades['Duration'], legend_col)
+        h_df = self._set_hist_source(self.df_trades['DurationBars'], legend_col)
         v_df = self._set_hist_source(self.df_trades['ReturnPct'], legend_col)
 
         for i, legend in enumerate(legends):
-            self.p.scatter(
-                    'Duration',
+            p = self.p.scatter(
+                    'DurationBars',
                     'ReturnPct',
                     source=scatter_source,
                     view=CDSView(
@@ -392,14 +393,14 @@ class PlotTradeResults:
                     alpha=0.4
                     )
 
-            self.ph.scatter(
+            ph1 = self.ph.scatter(
                     h_df[h_df[legend_col] == legend]['x'],
                     h_df[h_df[legend_col] == legend]['hist'],
                     color=palette[i % 10],
                     alpha=0.5,
                     size=6,
                     )
-            self.ph.line(
+            ph2 = self.ph.line(
                     h_df[h_df[legend_col] == legend]['x'],
                     h_df[h_df[legend_col] == legend]['hist'],
                     color=palette[i % 10],
@@ -407,20 +408,29 @@ class PlotTradeResults:
                     alpha=0.4,
                     )
 
-            self.pv.scatter(
+            pv1 = self.pv.scatter(
                     v_df[h_df[legend_col] == legend]['hist'],
                     v_df[h_df[legend_col] == legend]['x'],
                     color=palette[i % 10],
                     alpha=0.5,
                     size=6,
                     )
-            self.pv.line(
+            pv2 = self.pv.line(
                     v_df[h_df[legend_col] == legend]['hist'],
                     v_df[h_df[legend_col] == legend]['x'],
                     color=palette[i % 10],
                     line_width=4,
                     alpha=0.4,
                     )
+            p.js_on_change('visible', CustomJS(
+                args=dict(ph1=ph1, ph2=ph2, pv1=pv1, pv2=pv2),
+                code="""
+                ph1.visible = !(ph1.visible);
+                ph2.visible = !(ph2.visible);
+                pv1.visible = !(pv1.visible);
+                pv2.visible = !(pv2.visible);
+                """
+                ))
 
     def _set_hist_source(
             self,
