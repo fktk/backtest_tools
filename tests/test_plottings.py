@@ -7,10 +7,6 @@ from backtest_tools.plottings import PlotTradeResults
 from backtest_tools.plottings import StackCharts
 
 
-def test_plot_candlestick():
-    plot_candlestick_with_rangeslider(GOOG, 'tests/outputs/candle.html')
-
-
 def test_plot_multi_candle(sample_stats):
     trades = sample_stats._trades.tail(10)
 
@@ -47,5 +43,10 @@ def test_stack_charts(get_strategy):
             MyStrategy,
             title='hoge',
             hatch_range=(date(2005, 6, 1), date(2005, 7, 1))
+            )
+    charts.add(
+            GOOG.query('@date(2006, 4, 1) <= index < @date(2008, 8, 1)'),
+            MyStrategy,
+            title='fuga',
             )
     charts.save(filename='tests/outputs/stack.html')

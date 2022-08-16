@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from datetime import date
-from pathlib import Path
 
 import pandas as pd
 import numpy as np
 
-from bokeh.plotting import figure, save, output_file, reset_output
+from bokeh.plotting import figure, save, output_file
 from bokeh.plotting.figure import Figure
 from bokeh.layouts import gridplot, column
 from bokeh.models import ColumnDataSource, CDSView, CustomJS
@@ -16,9 +15,9 @@ from bokeh.models import NumeralTickFormatter
 from bokeh.events import DoubleTap
 from bokeh.models.tools import BoxZoomTool
 from bokeh.palettes import Category10_10 as palette
-from bokeh.io.state import curstate
+from bokeh.models import Model
 
-from backtesting import Backtest
+from backtesting import Backtest, Strategy
 
 
 class StackCharts:
@@ -26,28 +25,40 @@ class StackCharts:
     def __init__(self):
         self.fig = []
 
-    def add(self, data, strategy, title=None, hatch_range=(None, None)):
+    def add(self,
+            data: pd.DataFrame,
+            strategy: Strategy,
+            title: str | None = None,
+            hatch_range: tuple[str | None, str | None] = (None, None)
+            ):
         strategy.next = lambda self: False
 
         bt = Backtest(data, strategy)
         bt.run()
 
-        fig = bt.plot(filename='tmp.html', superimpose=False)
-        # Path('tmp.html').unlink()
+        fig = bt.plot(superimpose=False, open_browser=False)
+        for model in fig.select({'type': Model}):
+            prev_doc = model.document
+            model._document = None
+            if prev_doc:
+                prev_doc.remove_root(model)
 
         fig_ohlc = fig.children[0].children[0][0]
         fig_ohlc.height = 200
         fig_ohlc.js_on_event(DoubleTap, CustomJS(
             args=dict(p=fig_ohlc), code='p.reset.emit()'
             ))
-        fig_ohlc.add_layout(
-                BoxAnnotation(
-                    left=hatch_range[0],
-                    right=hatch_range[1],
-                    fill_color='red',
-                    fill_alpha=0.1,
+        if hatch_range[0] is not None:
+            fig_ohlc.add_layout(
+                    BoxAnnotation(
+                        left=bt._data.index.get_loc(
+                            pd.to_datetime(hatch_range[0]), method='nearest'),
+                        right=bt._data.index.get_loc(
+                            pd.to_datetime(hatch_range[1]), method='nearest'),
+                        fill_color='red',
+                        fill_alpha=0.1,
+                        )
                     )
-                )
         fig_ohlc.title = title
         self.fig.append(fig)
 
@@ -180,91 +191,6 @@ class Candlestick:
         """
         output_file(filename)
         save(gridplot(self.p, sizing_mode='stretch_width', ncols=1))
-
-
-def plot_candlestick_with_rangeslider(
-        df: pd.DataFrame,
-        filename: str
-        ) -> None:
-    """レンジスライダー付きローソク足グラフを作る
-
-    Args:
-        df: OHLCV形式のデータ 頭文字は大文字
-        filename: 出力するファイル名
-
-    """
-    source = ColumnDataSource(data=df)
-
-    inc = df.Close >= df.Open
-    view_inc = CDSView(source=source, filters=[BooleanFilter(inc)])
-    dec = df.Open > df.Close
-    view_dec = CDSView(source=source, filters=[BooleanFilter(dec)])
-    w = 18 * 60 * 60 * 1000  # half day in ms
-
-    TOOLS = "pan,xwheel_zoom,ywheel_zoom,crosshair"
-    p = figure(
-            height=400, sizing_mode='stretch_width',
-            x_axis_type="datetime",
-            tools=TOOLS,
-            x_range=(df.index.values[0], df.index.values[-1])
-            )
-    p.grid.grid_line_alpha = 0.3
-
-    p.segment('index', 'High', 'index', 'Low', color="black", source=source)
-    r1 = p.vbar(
-            'index', w, 'Open', 'Close',
-            fill_color="#D5E1DD", line_color="black",
-            source=source, view=view_inc
-            )
-    r2 = p.vbar(
-            'index', w, 'Open', 'Close',
-            fill_color="#F2583E", line_color="black",
-            source=source, view=view_dec
-            )
-    hovertool = HoverTool(
-            tooltips=[
-                ('Date', '@index{%F}'),
-                ('Open', '@Open'),
-                ('Close', '@Close'),
-                ('High', '@High'),
-                ('Low', '@Low'),
-            ],
-            formatters={
-                '@index': 'datetime',
-            },
-            mode='vline',
-            renderers=[r1, r2]
-            )
-    p.add_tools(hovertool)
-
-    p.js_on_event(
-            DoubleTap,
-            CustomJS(args=dict(p=p), code='p.reset.emit()')
-            )
-
-    slider = _set_rangeslider_for_p(p, source)
-
-    output_file(filename)
-    save(column(p, slider, sizing_mode='stretch_width'))
-
-
-def _set_rangeslider_for_p(p, source):
-    slider = figure(
-            height=100, sizing_mode='stretch_width',
-            x_axis_type="datetime", y_axis_type=None,
-            tools="", toolbar_location=None,
-            background_fill_color="#eee"
-            )
-    slider.ygrid.grid_line_color = None
-
-    range_tool = RangeTool(x_range=p.x_range)
-    range_tool.overlay.fill_color = "navy"
-    range_tool.overlay.fill_alpha = 0.2
-
-    slider.line('index', 'Close', source=source)
-    slider.add_tools(range_tool)
-    slider.toolbar.active_multi = range_tool
-    return slider
 
 
 class PlotTradeResults:

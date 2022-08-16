@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 from pathlib import Path
 
-basepath = Path(__file__).parent.joinpath('../price')
+basepath = Path(__file__).parent.joinpath('price')
 
 
 def _protra_date(n):
