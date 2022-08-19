@@ -6,16 +6,14 @@ import pandas as pd
 import numpy as np
 
 from bokeh.plotting import figure, save, output_file
-from bokeh.plotting.figure import Figure
-from bokeh.layouts import gridplot, column
+from bokeh.layouts import gridplot
 from bokeh.models import ColumnDataSource, CDSView, CustomJS
-from bokeh.models import HoverTool, Span, RangeTool, BoxAnnotation
-from bokeh.models import BooleanFilter, GroupFilter
+from bokeh.models import HoverTool, Span, BoxAnnotation
+from bokeh.models import GroupFilter
 from bokeh.models import NumeralTickFormatter
-from bokeh.events import DoubleTap
-from bokeh.models.tools import BoxZoomTool
-from bokeh.palettes import Category10_10 as palette
 from bokeh.models import Model
+from bokeh.events import DoubleTap
+from bokeh.palettes import Category10_10 as palette
 
 from backtesting import Backtest, Strategy
 
@@ -29,7 +27,7 @@ class StackCharts:
             data: pd.DataFrame,
             strategy: Strategy,
             title: str | None = None,
-            hatch_range: tuple[str | None, str | None] = (None, None)
+            hatch_range: tuple[date | None, date | None] = (None, None)
             ):
         strategy.next = lambda self: False
 
@@ -51,10 +49,10 @@ class StackCharts:
         if hatch_range[0] is not None:
             fig_ohlc.add_layout(
                     BoxAnnotation(
-                        left=bt._data.index.get_loc(
-                            pd.to_datetime(hatch_range[0]), method='nearest'),
-                        right=bt._data.index.get_loc(
-                            pd.to_datetime(hatch_range[1]), method='nearest'),
+                        left=bt._data.index.get_indexer(
+                            [hatch_range[0]], method='nearest')[0],
+                        right=bt._data.index.get_indexer(
+                            [hatch_range[1]], method='nearest')[0],
                         fill_color='red',
                         fill_alpha=0.1,
                         )
@@ -65,132 +63,6 @@ class StackCharts:
     def save(self, filename):
         output_file(filename)
         save(gridplot(self.fig, sizing_mode='stretch_width', ncols=1))
-
-
-class Candlestick:
-    """複数のローソク足グラフを縦に並べる
-
-    Attributes:
-        p(list): 複数のFigureを格納しておく
-
-    """
-
-    w = 12 * 60 * 60 * 1000  # half day in ms
-    TOOLS = "pan,ywheel_zoom,crosshair,save"
-    hovertool: HoverTool = HoverTool(
-            tooltips=[
-                ('Date', '@index{%F}'),
-                ('Open', '@Open'),
-                ('Close', '@Close'),
-                ('High', '@High'),
-                ('Low', '@Low'),
-                ('Volume', '@Volume'),
-            ],
-            formatters={
-                '@index': 'datetime',
-            },
-            mode='vline'
-            )
-
-    def __init__(self) -> None:
-        self.p = []
-
-    def _make_candle_figure(self) -> tuple[Figure, Figure]:
-        """ローソク足と出来高プロット用のFigureを用意する
-
-        Returns: ローソク足と出来高用のFigureのtupleを返す
-
-        """
-        p = figure(
-                max_width=600, height=200,
-                x_axis_type="datetime",
-                y_axis_type='log',
-                tools=self.TOOLS,
-                toolbar_location='below',
-                active_scroll='ywheel_zoom',
-                )
-        p.add_tools(BoxZoomTool(dimensions='width'))
-        p.add_tools(self.hovertool)
-        p.js_on_event(
-                DoubleTap,
-                CustomJS(args=dict(p=p), code='p.reset.emit()')
-                )
-
-        p2 = figure(
-                max_width=600, height=100,
-                x_axis_type="datetime",
-                x_range=p.x_range,
-                tools=p.tools,
-                )
-        p2.js_on_event(
-                DoubleTap,
-                CustomJS(args=dict(p2=p2), code='p2.reset.emit()')
-                )
-
-        return p, p2
-
-    def add_chart(self, df: pd.DataFrame, date: date, title: str) -> None:
-        """ローソク足と出来高グラフを追加する
-
-        ローソク足と出来高を縦にならべて、self.pに追加する
-        最終的に追加したself.pを出力する
-
-        Args:
-            df: OHLCV形式のデータ 頭文字は大文字
-            date: 網掛けする日付け
-            title: タイトル
-
-        """
-        p, p2 = self._make_candle_figure()
-        p.title = title
-
-        p.add_layout(
-                Span(
-                    location=date,
-                    dimension='height',
-                    line_color='red',
-                    line_dash='solid',
-                    line_alpha=0.1,
-                    line_width=10,
-                    )
-                )
-
-        source = ColumnDataSource(data=df)
-        inc = df.Close >= df.Open
-        view_inc = CDSView(source=source, filters=[BooleanFilter(inc)])
-        dec = df.Open > df.Close
-        view_dec = CDSView(source=source, filters=[BooleanFilter(dec)])
-
-        p.segment(
-                'index', 'High', 'index', 'Low',
-                color="black", source=source, line_width=2
-                )
-        p.vbar(
-                'index', self.w, 'Open', 'Close',
-                fill_color="red", line_color="black",
-                source=source, view=view_inc
-                )
-        p.vbar(
-                'index', self.w, 'Open', 'Close',
-                fill_color="blue", line_color="black",
-                source=source, view=view_dec
-                )
-        p2.vbar(
-                x='index', top='Volume',
-                width=1, fill_color='black', source=source
-                )
-
-        self.p.append(column(p, p2))
-
-    def save(self, filename: str) -> None:
-        """グラフを出力する
-
-        Args:
-            filename: 出力するHTMLファイルの名前
-
-        """
-        output_file(filename)
-        save(gridplot(self.p, sizing_mode='stretch_width', ncols=1))
 
 
 class PlotTradeResults:

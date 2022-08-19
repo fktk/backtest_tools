@@ -1,4 +1,4 @@
-from backtest_tools import parse_protra_data
+from backtest_tools.read_price import parse_protra_data
 
 
 def test_parse_protra_data():

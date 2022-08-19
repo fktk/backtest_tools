@@ -1,23 +1,9 @@
 from backtesting.test import GOOG
 from datetime import date
 
-from backtest_tools.plottings import plot_candlestick_with_rangeslider
-from backtest_tools.plottings import Candlestick
 from backtest_tools.plottings import PlotTradeResults
 from backtest_tools.plottings import StackCharts
-
-
-def test_plot_multi_candle(sample_stats):
-    trades = sample_stats._trades.tail(10)
-
-    plot = Candlestick()
-    for entry, exit in zip(trades.EntryTime, trades.ExitTime):
-        i_entry = GOOG.index.get_loc(entry)
-        i_exit = GOOG.index.get_loc(exit)
-        df = GOOG.iloc[i_entry: i_exit+1]
-        plot.add_chart(df, date=entry.date(), title='google')
-
-    plot.save('tests/outputs/charts.html')
+from backtest_tools.read_zip_data import StockData
 
 
 def test_result_plot(sample_stats):
@@ -36,17 +22,27 @@ def test_result_plot(sample_stats):
 
 
 def test_stack_charts(get_strategy):
+    sd = StockData('7201')
+    data = sd.read()
     MyStrategy = get_strategy
     charts = StackCharts()
     charts.add(
-            GOOG.query('@date(2005, 4, 1) <= index < @date(2005, 8, 1)'),
+            data.query('@date(2005, 4, 1) <= index < @date(2005, 8, 1)'),
             MyStrategy,
-            title='hoge',
+            title='7201',
             hatch_range=(date(2005, 6, 1), date(2005, 7, 1))
             )
     charts.add(
-            GOOG.query('@date(2006, 4, 1) <= index < @date(2008, 8, 1)'),
+            data.query('@date(2006, 4, 1) <= index < @date(2008, 8, 1)'),
             MyStrategy,
-            title='fuga',
+            title='7201',
+            )
+    sd = StockData('7203')
+    data = sd.read()
+    charts.add(
+            data.query('@date(2006, 4, 1) <= index < @date(2008, 8, 1)'),
+            MyStrategy,
+            title='7203',
+            hatch_range=(date(2005, 6, 1), date(2007, 7, 1))
             )
     charts.save(filename='tests/outputs/stack.html')

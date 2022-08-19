@@ -57,7 +57,7 @@ def walkforward(
         out_period: float,
         optimize_params: dict,
         backtest_config: dict | None = {'cash': 1_000_000, 'commission': .002}
-        ) -> tuple[pd.DataFrame, _Stats]:
+        ) -> pd.DataFrame:
     """ウォークフォワードテストを行う
 
     入力したデータの日付インデックスから、アウトサンプル期間、インサンプル期間のデータを
