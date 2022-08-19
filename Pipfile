@@ -15,6 +15,7 @@ backtesting = "*"
 ta-lib = "*"
 tqdm = "*"
 backtest-tools = {editable = true, path = "."}
+xlrd = "*"
 
 [dev-packages]
 autopep8 = "*"
