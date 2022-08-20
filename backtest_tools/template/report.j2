@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>評価</title>
+  <link rel="stylesheet" href="https://unpkg.com/modern-css-reset/dist/reset.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/mvp.css">
+</head>
+<body>
+  <main style="padding: 20px 20px;">
+    <select id="chart1" name="chart">
+      {% for chart in list_charts %}
+      <option value="{{ chart }}">{{ chart }}</option>
+      {% endfor %}
+    </select>
+    <iframe id="frame1" height="350px" width="100%" src="" frameborder="0"></iframe>
+
+    <select id="chart2" name="chart">
+      {% for chart in list_charts %}
+      <option value="{{ chart }}">{{ chart }}</option>
+      {% endfor %}
+    </select>
+    <iframe id="frame2" height="350px" width="100%" src="" frameborder="0"></iframe>
+  </main>
+  <script>
+    document.getElementById('chart1').addEventListener('change', (ev) => {
+          console.log(ev.target.value)
+          const src = './charts/' + ev.target.value + '.html'
+          document.getElementById('frame1').src = src
+        })
+    document.getElementById('chart2').addEventListener('change', (ev) => {
+          console.log(ev.target.value)
+          const src = './charts/' + ev.target.value + '.html'
+          document.getElementById('frame2').src = src
+        })
+  </script>
+</body>
+</html>

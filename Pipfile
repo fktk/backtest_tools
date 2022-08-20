@@ -16,6 +16,7 @@ ta-lib = "*"
 tqdm = "*"
 backtest-tools = {editable = true, path = "."}
 xlrd = "*"
+jinja2 = "*"
 
 [dev-packages]
 autopep8 = "*"

@@ -1,7 +1,7 @@
 from backtest_tools.code_list import CodeList
 from backtest_tools.read_zip_data import StockData
 from backtest_tools.backtest import backtest_for_multiple_data
-# from backtest_tools.plottings import StackCharts
+from backtest_tools.plottings import StackCharts
 from backtest_tools.montecarlo import Montecarlo
 from backtest_tools.plottings import PlotTradeResults
 
@@ -14,7 +14,6 @@ def test_backtest_for_multiple_data(get_strategy):
     
     code_list = []
     data_list = []
-    # charts = StackCharts()
     for code in industry_filtered_list['コード']:
         try:
             sd = StockData(code)
@@ -25,16 +24,18 @@ def test_backtest_for_multiple_data(get_strategy):
         data = sd.read()
         code_list.append(code)
         data_list.append(data)
-        # charts.add(
-        #         data,
-        #         TestStrategy,
-        #         title=code,
-        #         )
+
+        charts = StackCharts()
+        charts.add(
+                data,
+                TestStrategy,
+                title=code,
+                )
+        charts.save(filename=f'tests/outputs/charts/{code}.html')
 
     data_name_tpl_lst = list(zip(data_list, code_list))
     results = backtest_for_multiple_data(data_name_tpl_lst, TestStrategy)
     print(results)
-    # charts.save(filename='tests/outputs/integrate_chart.html')
 
     mont = Montecarlo(results, 1_000_000., 800_000,)
     mont.run(sim_times=5000)

@@ -18,7 +18,7 @@ def test_result_plot(sample_stats):
     plot.add_record(trades_in, 'in')
     plot.add_record(trades_mid, 'mid')
     plot.add_record(trades_out, 'out')
-    plot.save('tests/outputs/hist.html')
+    plot.save('tests/outputs/scatter.html')
 
 
 def test_stack_charts(get_strategy):
