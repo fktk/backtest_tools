@@ -76,3 +76,13 @@ class StockData:
         data = data.set_index('Date')
 
         return data
+
+
+    def check_len_to_toyota(self):
+        toyota = StockData('7203').read()
+
+        me = self.read()
+        toyota_match_range = toyota.query('''
+                @me.index.min() <= index <= @me.index.max()
+                ''')
+        return len(me) / len(toyota_match_range)

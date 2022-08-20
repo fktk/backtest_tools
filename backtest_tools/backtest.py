@@ -134,8 +134,8 @@ def walkforward(
 
     results = pd.DataFrame(results)
 
-    print(results)
-    print(trades)
+    # print(results)
+    # print(trades)
     return results, trades
 
 
@@ -195,6 +195,7 @@ def _batch_backtest(
         bt = Backtest(data, strategy)
         stats = bt.run()
         trade = cut_not_closed_trades(stats)
+        # trade = stats._trades
         trade['name'] = name
         del bt
         trades = pd.concat([trades, trade])

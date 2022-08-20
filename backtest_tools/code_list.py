@@ -28,7 +28,7 @@ class CodeList:
     def __init__(
             self,
             srcfile_path: Path = default_src,
-            ) -> None:
+            ):
 
         if not srcfile_path.exists():
             raise FileNotFoundError
@@ -36,7 +36,12 @@ class CodeList:
         self.srcfile_path = srcfile_path
 
     def read(self) -> pd.DataFrame:
-        """リストファイルを読み込む"""
+        """リストファイルを読み込む
+
+        Returns:
+            株式コードのリスト
+        """
 
         lst_code = pd.read_excel(self.srcfile_path, sheet_name='Sheet1')
-        return lst_code.astype(str)
+        lst_code = lst_code.astype(str)
+        return lst_code

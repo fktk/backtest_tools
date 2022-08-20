@@ -17,7 +17,7 @@ def cut_not_closed_trades(stats: pd.DataFrame) -> pd.DataFrame:
     """
     last_day = stats.End
     trades_remain = stats._trades[
-            stats._trades.ExitTime.dt.date != last_day.date()
+            pd.to_datetime(stats._trades.ExitTime).dt.date != last_day.date()
             ]
     return trades_remain
 
